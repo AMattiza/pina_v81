@@ -42,7 +42,7 @@ export default function App() {
     license2Threshold: 3
   });
 
-  // Automatische Aktualisierung von marginPerUnit und deckungsbeitragPerUnit
+  // marginPerUnit & deckungsbeitragPerUnit automatisch aktualisieren
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -64,7 +64,7 @@ export default function App() {
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  // Neukunden pro Monat berechnen
+  // 1) Neukunden pro Monat
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -74,7 +74,7 @@ export default function App() {
         : 0)
   );
 
-  // Summary-Werte insgesamt
+  // 2) Summary-Gesamtzahlen
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
@@ -82,28 +82,28 @@ export default function App() {
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
 
-  // Ø VE pro Händler/Jahr (durchschnittliche VE in den ersten 12 Monaten pro Kunde)
+  // 3) Ø VE pro Kunde über gesamten Zeitraum (months Monate)
   let totalUnitsAllCustomers = 0;
   newPartnersPerMonth.forEach((cohortSize, i) => {
-    // VE für einen einzelnen Kunden dieser Kohorte in den ersten 12 Monaten
-    let unitsPerCustomerFirstYear = 0;
+    // VE pro Kunde dieser Kohorte im Verlauf von 'months' Monaten
+    let unitsPerCustomerLifetime = 0;
     // Erstbestellung
-    unitsPerCustomerFirstYear += unitsPerDisplay;
-    // Nachbestellungen in den Monaten 1 bis 11
-    for (let m = 1; m < 12; m++) {
+    unitsPerCustomerLifetime += unitsPerDisplay;
+    // Nachbestellungen in den Monaten 1 … months-1
+    for (let m = 1; m < months; m++) {
       if (reorderCycle > 0 && m % reorderCycle === 0) {
-        unitsPerCustomerFirstYear += (reorderRate / 100) * unitsPerDisplay;
+        unitsPerCustomerLifetime += (reorderRate / 100) * unitsPerDisplay;
       }
     }
-    // Multipliziere mit Kohortengröße
-    totalUnitsAllCustomers += cohortSize * unitsPerCustomerFirstYear;
+    // Multipliziert mit der Zahl der Kunden dieser Kohorte
+    totalUnitsAllCustomers += cohortSize * unitsPerCustomerLifetime;
   });
-  const totalCustomers = totalNew;
-  const avgUnits = totalCustomers > 0
-    ? totalUnitsAllCustomers / totalCustomers
-    : 0;
 
-  // Ø Umsatz pro Händler/Jahr
+  // Durchschnittliche VE pro Kunde über den gesamten Zeitraum
+  const avgUnits =
+    totalNew > 0 ? totalUnitsAllCustomers / totalNew : 0;
+
+  // Ø Umsatz pro Händler über den gesamten Zeitraum
   const avgRevenue = avgUnits * sellPrice;
 
   return (
