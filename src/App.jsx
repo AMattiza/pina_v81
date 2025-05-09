@@ -49,22 +49,40 @@ export default function App() {
   }, [data.sellPrice, data.costPrice, data.salesCost, data.logisticsCost]);
 
   const {
-    months, startDate, costPrice, sellPrice,
-    salesCost, logisticsCost, unitsPerDisplay,
-    newPartners, increaseInterval, increaseAmount,
-    reorderRate, reorderCycle,
-    license1Gross, postcardCost, graphicShare,
-    license2, license2Threshold, marginPerUnit, deckungsbeitragPerUnit
+    months,
+    startDate,
+    costPrice,
+    sellPrice,
+    salesCost,
+    logisticsCost,
+    unitsPerDisplay,
+    newPartners,
+    increaseInterval,
+    increaseAmount,
+    reorderRate,
+    reorderCycle,
+    license1Gross,
+    postcardCost,
+    graphicShare,
+    license2,
+    license2Threshold,
+    marginPerUnit,
+    deckungsbeitragPerUnit
   } = data;
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  // 1) Neukunden-Kohorten
-  const newPartnersPerMonth = Array.from({ length: months }, (_, j) =>
-    newPartners + (increaseInterval > 0 ? Math.floor(j / increaseInterval) * increaseAmount : 0)
+  // 1) Neukunden-Kohorten pro Monat
+  const newPartnersPerMonth = Array.from(
+    { length: months },
+    (_, j) =>
+      newPartners +
+      (increaseInterval > 0
+        ? Math.floor(j / increaseInterval) * increaseAmount
+        : 0)
   );
 
-  // 2) KPI – erstes Jahr
+  // 2) KPI – erstes Jahr (Offset 0…11)
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
@@ -73,7 +91,7 @@ export default function App() {
   );
   let totalUnitsFirstYear = 0;
   newPartnersPerMonth.forEach(cohortSize => {
-    let ve = unitsPerDisplay;
+    let ve = unitsPerDisplay; // Erstbestellung
     for (let m = 1; m <= 11; m++) {
       if (reorderCycle > 0 && m % reorderCycle === 0) {
         ve += (reorderRate / 100) * unitsPerDisplay;
@@ -84,21 +102,23 @@ export default function App() {
   const avgUnitsFirstYear = totalNew > 0 ? totalUnitsFirstYear / totalNew : 0;
   const avgRevenueFirstYear = avgUnitsFirstYear * sellPrice;
 
-  // 3) Chart-Daten (2. Jahr)
+  // 3) Chart-Daten (für LicenseChart & spätere CSV)
   const chartData = newPartnersPerMonth.map((cSize, i) => {
     const yyyy = startYear + Math.floor((startMonth - 1 + i) / 12);
     const mm = ((startMonth - 1 + i) % 12) + 1;
     const monthLabel = `${String(mm).padStart(2, '0')}/${yyyy}`;
 
+    // Bestellungen im 2. Jahr (Offset 12…23)
     const baseUnits = cSize * unitsPerDisplay;
     let reorderUnits = 0;
-    for (let k = 1; k * reorderCycle <= i + 1; k++) {
+    for (let k = 1; k * reorderCycle <= 23; k++) {
       const offset = k * reorderCycle;
       if (offset >= 12 && offset <= 23) {
         reorderUnits += cSize * (reorderRate / 100) * unitsPerDisplay;
       }
     }
     const totalUnits = baseUnits + reorderUnits;
+
     const bruttoRohertrag = (sellPrice - costPrice) * totalUnits;
     const vertriebsKosten = salesCost * totalUnits;
     const logistikKosten = logisticsCost * totalUnits;
@@ -129,7 +149,7 @@ export default function App() {
   const totalLicense2 = chartData.reduce((sum, r) => sum + r.tier2, 0);
   const totalUnitsAll = chartData.reduce((sum, r) => sum + r.totalUnits, 0);
 
-  // CSV-Export
+  // CSV-Export-Funktion
   const handleExportCSV = () => {
     const headers = [
       'Monat',
@@ -174,33 +194,39 @@ export default function App() {
   };
 
   const fmt = v =>
-    new Intl.NumberFormat('de-DE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(v) + ' €';
+    new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
   const fmtNum = v =>
-    new Intl.NumberFormat('de-DE', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(v);
+    new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <h1 className="text-3xl font-semibold mb-6">Business Case Simulator</h1>
 
+      {/* 1: Basisdaten & Produktkalkulation */}
       <CollapsibleSection title="Basisdaten & Produktkalkulation">
         <InputMask data={data} onChange={setData} sections={['Basisdaten','Produktkalkulation']} />
       </CollapsibleSection>
+
+      {/* 2: Händlerwachstum & Bestellverhalten */}
       <CollapsibleSection title="Händlerwachstum & Bestellverhalten">
         <InputMask data={data} onChange={setData} sections={['Händlerwachstum','Bestellverhalten']} />
       </CollapsibleSection>
+
+      {/* 3: Kostenplanung (Pina) */}
       <CollapsibleSection title="Kostenplanung (Pina)">
         <InputMask data={data} onChange={setData} sections={['Kostenplanung (Pina)']} />
       </CollapsibleSection>
-      <CollapsibleSection title="Lizenz 1 & Lizenz 2">
-        <InputMask data={data} onChange={setData} sections={['Lizenz 1 / Städteserie (C-Hub)','Lizenz 2 / Website & Shop (C-Hub)']} />
+
+      {/* 4: Lizenz 1 & Lizenz 2 */}
+      <CollapsibleSection title="Lizenz 1 / Städteserie & Lizenz 2 / Website & Shop">
+        <InputMask
+          data={data}
+          onChange={setData}
+          sections={['Lizenz 1 / Städteserie (C-Hub)','Lizenz 2 / Website & Shop (C-Hub)']}
+        />
       </CollapsibleSection>
 
+      {/* Übersicht – Kundenzahlen */}
       <CollapsibleSection title="Übersicht – Kundenzahlen">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-gray-100 rounded-xl text-center">
@@ -216,6 +242,7 @@ export default function App() {
         </div>
       </CollapsibleSection>
 
+      {/* Übersicht – Durchschnittswerte */}
       <CollapsibleSection title="Übersicht – Durchschnittswerte">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-gray-100 rounded-xl text-center">
@@ -231,6 +258,7 @@ export default function App() {
         </div>
       </CollapsibleSection>
 
+      {/* Übersicht – Gesamt VE */}
       <CollapsibleSection title="Übersicht – Gesamt VE">
         <div className="p-4 bg-gray-100 rounded-xl text-center">
           <h3 className="font-medium">VE insgesamt Ende Planungszeitraum</h3>
@@ -239,6 +267,7 @@ export default function App() {
         </div>
       </CollapsibleSection>
 
+      {/* Lizenz-KPIs */}
       <CollapsibleSection title="Lizenz-KPIs">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-gray-100 rounded-xl text-center">
@@ -248,7 +277,7 @@ export default function App() {
           </div>
           <div className="p-4 bg-gray-100 rounded-xl text-center">
             <h3 className="font-medium">Ø monatlicher Erlös Lizenz 1</h3>
-            <p className="mt-2 text-2xl font-semibold">{fmt(avgMonthlyLicense1)}</p>
+            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense1 / months)}</p>
             <p className="text-sm text-gray-500">Durchschnitt pro Monat</p>
           </div>
           <div className="p-4 bg-gray-100 rounded-xl text-center">
@@ -258,12 +287,13 @@ export default function App() {
           </div>
           <div className="p-4 bg-gray-100 rounded-xl text-center">
             <h3 className="font-medium">Ø monatlicher Erlös Lizenz 2</h3>
-            <p className="mt-2 text-2xl font-semibold">{fmt(avgMonthlyLicense2)}</p>
+            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense2 / months)}</p>
             <p className="text-sm text-gray-500">Durchschnitt pro Monat</p>
           </div>
         </div>
       </CollapsibleSection>
 
+      {/* Einnahmen & Marge */}
       <CollapsibleSection title="Einnahmen & Marge">
         <LicenseChart
           data={data}
