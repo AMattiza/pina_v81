@@ -42,7 +42,7 @@ export default function App() {
     license2Threshold: 3
   });
 
-  // Auto‐Update von marginPerUnit & deckungsbeitragPerUnit
+  // Automatische Aktualisierung von marginPerUnit & deckungsbeitragPerUnit
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -67,7 +67,7 @@ export default function App() {
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  // 1) Neukunden‐Kohorten pro Monat
+  // 1) Neukunden-Kohorten pro Monat
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -77,7 +77,7 @@ export default function App() {
         : 0)
   );
 
-  // 2) totalNew & reorders
+  // 2) Gesamt‐Neukunden und Reorders im ersten Jahr (Offset 0…11)
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
@@ -85,37 +85,21 @@ export default function App() {
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
 
-  // 3) Gesamt‐VE in den ersten 12 Monaten aller Kunden
-  let totalUnitsAllCustomers = 0;
+  // 3) Ø VE pro Händler im zweiten Jahr (Offset 12…23)
+  let totalUnitsSecondYearAllCustomers = 0;
   newPartnersPerMonth.forEach(cohortSize => {
-    let vePerCustomer = unitsPerDisplay;            // Erstbestellung (Monat 0)
-    for (let m = 1; m <= 11; m++) {                  // Nachbestellungen in Monat 1…11
+    let veSecondYear = 0;
+    // Nur Nachbestellungen im zweiten Jahr, keine Erstbestellung
+    for (let m = 12; m <= 23; m++) {
       if (reorderCycle > 0 && m % reorderCycle === 0) {
-        vePerCustomer += (reorderRate / 100) * unitsPerDisplay;
+        veSecondYear += (reorderRate / 100) * unitsPerDisplay;
       }
     }
-    totalUnitsAllCustomers += cohortSize * vePerCustomer;
+    totalUnitsSecondYearAllCustomers += cohortSize * veSecondYear;
   });
-
-  // Ø VE pro Händler/Jahr (alle)
-  const avgUnitsAll =
-    totalNew > 0 ? totalUnitsAllCustomers / totalNew : 0;
-
-  // 4) Anzahl der Händler mit ≥1 Nachbestellung
-  const reorderersCount = Math.round(
-    newPartnersPerMonth
-      .slice(0, months - reorderCycle)
-      .reduce((sum, cohortSize) => sum + cohortSize * (reorderRate / 100), 0)
-  );
-
-  // Ø VE pro Händler/Jahr (nur Reorderer)
-  const avgUnitsReorderers =
-    reorderersCount > 0
-      ? totalUnitsAllCustomers / reorderersCount
-      : 0;
-
-  // Ø Umsatz pro Händler/Jahr (alle)
-  const avgRevenueAll = avgUnitsAll * sellPrice;
+  const avgUnitsSecondYear =
+    totalNew > 0 ? totalUnitsSecondYearAllCustomers / totalNew : 0;
+  const avgRevenueSecondYear = avgUnitsSecondYear * sellPrice;
 
   // Formatter
   const fmt = v =>
@@ -140,31 +124,16 @@ export default function App() {
       </CollapsibleSection>
 
       <CollapsibleSection title="Übersicht">
-        {/* Bestehende Zusammenfassung */}
+        {/* SummarySection nimmt jetzt die Second-Year-Werte */}
         <SummarySection
           totalNew={totalNew}
           reorders={reorders}
-          avgUnits={avgUnitsAll}
-          avgRevenue={avgRevenueAll}
+          avgUnits={avgUnitsSecondYear}
+          avgRevenue={avgRevenueSecondYear}
           deckungsbeitragPerUnit={deckungsbeitragPerUnit}
           license1Gross={license1Gross}
           license2={license2}
         />
-
-        {/* Neues Widget: Ø VE nur über Reorderer */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          <div className="p-4 bg-gray-100 rounded-xl text-center">
-            <h3 className="font-medium">
-              Ø VE nur Reorderer/Jahr
-            </h3>
-            <p className="text-sm text-gray-500 mb-2">
-              Durchschnittliche Verkaufseinheiten in den ersten 12 Monaten pro Händler, der mindestens eine Nachbestellung getätigt hat
-            </p>
-            <p className="mt-2 text-2xl font-semibold">
-              {fmtNum(avgUnitsReorderers)}
-            </p>
-          </div>
-        </div>
       </CollapsibleSection>
 
       <CollapsibleSection title="Einnahmen & Marge">
