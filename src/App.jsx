@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import InputMask from './components/InputMask';
 import LicenseChart from './components/LicenseChart';
 import SummarySection from './components/SummarySection';
+import ReorderRatioChart from './components/ReorderRatioChart';
 
 function CollapsibleSection({ title, children }) {
   const [open, setOpen] = useState(true);
@@ -64,7 +65,7 @@ export default function App() {
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  // 1) Neukunden pro Monat
+  // 1) Neukunden pro Monat berechnen
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -82,29 +83,29 @@ export default function App() {
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
 
-  // 3) Ø VE pro Kunde über gesamten Zeitraum (months Monate)
+  // 3) Ø VE pro Kunde im ersten Jahr
   let totalUnitsAllCustomers = 0;
-  newPartnersPerMonth.forEach((cohortSize, i) => {
-    // VE pro Kunde dieser Kohorte im Verlauf von 'months' Monaten
-    let unitsPerCustomerLifetime = 0;
-    // Erstbestellung
-    unitsPerCustomerLifetime += unitsPerDisplay;
-    // Nachbestellungen in den Monaten 1 … months-1
-    for (let m = 1; m < months; m++) {
+  newPartnersPerMonth.forEach(cohortSize => {
+    let unitsPerCustomerFirstYear = unitsPerDisplay;
+    for (let m = 1; m < 12; m++) {
       if (reorderCycle > 0 && m % reorderCycle === 0) {
-        unitsPerCustomerLifetime += (reorderRate / 100) * unitsPerDisplay;
+        unitsPerCustomerFirstYear += (reorderRate / 100) * unitsPerDisplay;
       }
     }
-    // Multipliziert mit der Zahl der Kunden dieser Kohorte
-    totalUnitsAllCustomers += cohortSize * unitsPerCustomerLifetime;
+    totalUnitsAllCustomers += cohortSize * unitsPerCustomerFirstYear;
   });
+  const avgUnits = totalNew > 0
+    ? totalUnitsAllCustomers / totalNew
+    : 0;
 
-  // Durchschnittliche VE pro Kunde über den gesamten Zeitraum
-  const avgUnits =
-    totalNew > 0 ? totalUnitsAllCustomers / totalNew : 0;
-
-  // Ø Umsatz pro Händler über den gesamten Zeitraum
+  // Ø Umsatz pro Händler im ersten Jahr
   const avgRevenue = avgUnits * sellPrice;
+
+  // 4) Neukunden mit mindestens einer Nachbestellung
+  const reorderersFirstCycle = newPartnersPerMonth
+    .slice(0, months - reorderCycle)
+    .reduce((sum, cohortSize) => sum + cohortSize * (reorderRate / 100), 0);
+  const reorderers = Math.round(reorderersFirstCycle);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -125,6 +126,12 @@ export default function App() {
           deckungsbeitragPerUnit={data.deckungsbeitragPerUnit}
           license1Gross={data.license1Gross}
           license2={data.license2}
+        />
+
+        <h2 className="mt-8 text-xl font-semibold">Reorder-Ratio</h2>
+        <ReorderRatioChart
+          totalCustomers={totalNew}
+          reorderers={reorderers}
         />
       </CollapsibleSection>
 
