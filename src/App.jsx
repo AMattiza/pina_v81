@@ -65,9 +65,7 @@ export default function App() {
     postcardCost,
     graphicShare,
     license2,
-    license2Threshold,
-    marginPerUnit,
-    deckungsbeitragPerUnit
+    license2Threshold
   } = data;
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
@@ -102,13 +100,12 @@ export default function App() {
   const avgUnitsFirstYear = totalNew > 0 ? totalUnitsFirstYear / totalNew : 0;
   const avgRevenueFirstYear = avgUnitsFirstYear * sellPrice;
 
-  // 3) Chart-Daten (für LicenseChart & spätere CSV)
+  // 3) Chart-Daten (für LicenseChart & CSV)
   const chartData = newPartnersPerMonth.map((cSize, i) => {
     const yyyy = startYear + Math.floor((startMonth - 1 + i) / 12);
     const mm = ((startMonth - 1 + i) % 12) + 1;
     const monthLabel = `${String(mm).padStart(2, '0')}/${yyyy}`;
 
-    // Bestellungen im 2. Jahr (Offset 12…23)
     const baseUnits = cSize * unitsPerDisplay;
     let reorderUnits = 0;
     for (let k = 1; k * reorderCycle <= 23; k++) {
@@ -118,7 +115,6 @@ export default function App() {
       }
     }
     const totalUnits = baseUnits + reorderUnits;
-
     const bruttoRohertrag = (sellPrice - costPrice) * totalUnits;
     const vertriebsKosten = salesCost * totalUnits;
     const logistikKosten = logisticsCost * totalUnits;
@@ -194,30 +190,32 @@ export default function App() {
   };
 
   const fmt = v =>
-    new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
+    new Intl.NumberFormat('de-DE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(v) + ' €';
   const fmtNum = v =>
-    new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+    new Intl.NumberFormat('de-DE', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(v);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <h1 className="text-3xl font-semibold mb-6">Business Case Simulator</h1>
 
-      {/* 1: Basisdaten & Produktkalkulation */}
       <CollapsibleSection title="Basisdaten & Produktkalkulation">
         <InputMask data={data} onChange={setData} sections={['Basisdaten','Produktkalkulation']} />
       </CollapsibleSection>
 
-      {/* 2: Händlerwachstum & Bestellverhalten */}
       <CollapsibleSection title="Händlerwachstum & Bestellverhalten">
         <InputMask data={data} onChange={setData} sections={['Händlerwachstum','Bestellverhalten']} />
       </CollapsibleSection>
 
-      {/* 3: Kostenplanung (Pina) */}
       <CollapsibleSection title="Kostenplanung (Pina)">
         <InputMask data={data} onChange={setData} sections={['Kostenplanung (Pina)']} />
       </CollapsibleSection>
 
-      {/* 4: Lizenz 1 & Lizenz 2 */}
       <CollapsibleSection title="Lizenz 1 / Städteserie & Lizenz 2 / Website & Shop">
         <InputMask
           data={data}
@@ -226,7 +224,6 @@ export default function App() {
         />
       </CollapsibleSection>
 
-      {/* Übersicht – Kundenzahlen */}
       <CollapsibleSection title="Übersicht – Kundenzahlen">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-gray-100 rounded-xl text-center">
@@ -242,7 +239,6 @@ export default function App() {
         </div>
       </CollapsibleSection>
 
-      {/* Übersicht – Durchschnittswerte */}
       <CollapsibleSection title="Übersicht – Durchschnittswerte">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-gray-100 rounded-xl text-center">
@@ -258,16 +254,23 @@ export default function App() {
         </div>
       </CollapsibleSection>
 
-      {/* Übersicht – Gesamt VE */}
       <CollapsibleSection title="Übersicht – Gesamt VE">
-        <div className="p-4 bg-gray-100 rounded-xl text-center">
-          <h3 className="font-medium">VE insgesamt Ende Planungszeitraum</h3>
-          <p className="mt-2 text-2xl font-semibold">{fmtNum(totalUnitsAll)}</p>
-          <p className="text-sm text-gray-500">Summe aller VE über {months} Monate</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Gesamteinheiten */}
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">VE insgesamt Ende Planungszeitraum</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmtNum(totalUnitsAll)}</p>
+            <p className="text-sm text-gray-500">Summe aller VE über {months} Monate</p>
+          </div>
+          {/* Ø Einheiten pro Monat */}
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">Ø VE pro Monat</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmtNum(totalUnitsAll / months)}</p>
+            <p className="text-sm text-gray-500">Durchschnittliche VE je Monat</p>
+          </div>
         </div>
       </CollapsibleSection>
 
-      {/* Lizenz-KPIs */}
       <CollapsibleSection title="Lizenz-KPIs">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-gray-100 rounded-xl text-center">
@@ -293,7 +296,6 @@ export default function App() {
         </div>
       </CollapsibleSection>
 
-      {/* Einnahmen & Marge */}
       <CollapsibleSection title="Einnahmen & Marge">
         <LicenseChart
           data={data}
