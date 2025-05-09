@@ -40,6 +40,7 @@ export default function App() {
     deckungsbeitragPerUnit: 0
   });
 
+  // 1) Auto-Update Rohertrag und DBII pro Einheit
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -48,23 +49,33 @@ export default function App() {
   }, [data.sellPrice, data.costPrice, data.salesCost, data.logisticsCost]);
 
   const {
-    months, startDate, costPrice, sellPrice, salesCost, logisticsCost,
-    unitsPerDisplay, newPartners, increaseInterval, increaseAmount,
-    reorderRate, reorderCycle, license1Gross, postcardCost, graphicShare,
-    license2, license2Threshold
+    months,
+    startDate,
+    costPrice,
+    sellPrice,
+    salesCost,
+    logisticsCost,
+    unitsPerDisplay,
+    newPartners,
+    increaseInterval,
+    increaseAmount,
+    reorderRate,
+    reorderCycle,
+    license1Gross,
+    postcardCost,
+    graphicShare,
+    license2,
+    license2Threshold
   } = data;
+
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  const newPartnersPerMonth = Array.from(
-    { length: months },
-    (_, j) =>
-      newPartners +
-      (increaseInterval > 0
-        ? Math.floor(j / increaseInterval) * increaseAmount
-        : 0)
+  // 2) Neukunden-Cohorts
+  const newPartnersPerMonth = Array.from({ length: months }, (_, j) =>
+    newPartners + (increaseInterval > 0 ? Math.floor(j / increaseInterval) * increaseAmount : 0)
   );
 
-  // KPI erstes Jahr
+  // 3) KPI erstes Jahr (Offset 0…11)
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
@@ -84,7 +95,7 @@ export default function App() {
   const avgUnitsFirstYear = totalNew > 0 ? totalUnitsFirstYear / totalNew : 0;
   const avgRevenueFirstYear = avgUnitsFirstYear * sellPrice;
 
-  // Chart-Daten (2. Jahr)
+  // 4) Chart-Daten & Lizenz KPIs
   const chartData = newPartnersPerMonth.map((cSize, i) => {
     const yyyy = startYear + Math.floor((startMonth - 1 + i) / 12);
     const mm = ((startMonth - 1 + i) % 12) + 1;
@@ -99,6 +110,7 @@ export default function App() {
       }
     }
     const totalUnits = baseUnits + reorderUnits;
+
     const bruttoRohertrag = (sellPrice - costPrice) * totalUnits;
     const vertriebsKosten = salesCost * totalUnits;
     const logistikKosten = logisticsCost * totalUnits;
@@ -124,15 +136,9 @@ export default function App() {
     };
   });
 
-  // Lizenz-KPIs & Gesamt-VE
   const totalLicense1 = chartData.reduce((sum, r) => sum + r.tier1, 0);
   const totalLicense2 = chartData.reduce((sum, r) => sum + r.tier2, 0);
   const totalUnitsAll = chartData.reduce((sum, r) => sum + r.totalUnits, 0);
-
-  // letzte Monatserlöse
-  const last = chartData[months - 1] || {};
-  const lastLicense1 = last.tier1 || 0;
-  const lastLicense2 = last.tier2 || 0;
 
   const handleExportCSV = () => {
     const headers = [
@@ -168,56 +174,118 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 p-8">
       <h1 className="text-3xl font-semibold mb-6">Business Case Simulator</h1>
 
-      {/* ... alle InputMask Sections ... */}
+      {/* Input-Sektionen */}
+      <CollapsibleSection title="Basisdaten & Produktkalkulation">
+        <InputMask data={data} onChange={setData} sections={['Basisdaten','Produktkalkulation']} />
+      </CollapsibleSection>
+      <CollapsibleSection title="Händlerwachstum & Bestellverhalten">
+        <InputMask data={data} onChange={setData} sections={['Händlerwachstum','Bestellverhalten']} />
+      </CollapsibleSection>
+      <CollapsibleSection title="Kostenplanung (Pina)">
+        <InputMask data={data} onChange={setData} sections={['Kostenplanung (Pina)']} />
+      </CollapsibleSection>
+      <CollapsibleSection title="Lizenz 1 / Städteserie & Lizenz 2 / Shop">
+        <InputMask
+          data={data}
+          onChange={setData}
+          sections={['Lizenz 1 / Städteserie (C-Hub)','Lizenz 2 / Website & Shop (C-Hub)']}
+        />
+      </CollapsibleSection>
 
-      <CollapsibleSection title="Lizenz-KPIs">
+      {/* Übersicht – Total VE */}
+      <CollapsibleSection title="Übersicht – Gesamt VE">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-gray-100 rounded-xl text-center">
-            <h3 className="font-medium">Gesamt Erlös Lizenz 1</h3>
-            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense1)}</p>
+            <h3 className="font-medium">VE insgesamt</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmtNum(totalUnitsAll)}</p>
             <p className="text-sm text-gray-500">
-              Summe aller Lizenz-1-Einnahmen (abzüglich Postkarten- & Grafik­kosten)
+              Summe aller verkauften Einheiten im Planungszeitraum
             </p>
           </div>
           <div className="p-4 bg-gray-100 rounded-xl text-center">
-            <h3 className="font-medium">Ø monatlicher Erlös Lizenz 1</h3>
-            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense1 / months)}</p>
+            <h3 className="font-medium">Ø VE pro Monat</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmtNum(totalUnitsAll / months)}</p>
             <p className="text-sm text-gray-500">
-              Durchschnittlicher Lizenz-1-Ertrag pro Monat
-            </p>
-          </div>
-          <div className="p-4 bg-gray-100 rounded-xl text-center">
-            <h3 className="font-medium">Erlös Lizenz 1 im letzten Monat</h3>
-            <p className="mt-2 text-2xl font-semibold">{fmt(lastLicense1)}</p>
-            <p className="text-sm text-gray-500">
-              Erlös aus Lizenz 1 im letzten Monat des Planungszeitraums
-            </p>
-          </div>
-          <div className="p-4 bg-gray-100 rounded-xl text-center">
-            <h3 className="font-medium">Gesamt Erlös Lizenz 2</h3>
-            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense2)}</p>
-            <p className="text-sm text-gray-500">
-              Summe aller Lizenz-2-Einnahmen nach Erreichen der Schwelle
-            </p>
-          </div>
-          <div className="p-4 bg-gray-100 rounded-xl text-center">
-            <h3 className="font-medium">Ø monatlicher Erlös Lizenz 2</h3>
-            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense2 / months)}</p>
-            <p className="text-sm text-gray-500">
-              Durchschnittlicher Lizenz-2-Ertrag pro Monat
-            </p>
-          </div>
-          <div className="p-4 bg-gray-100 rounded-xl text-center">
-            <h3 className="font-medium">Erlös Lizenz 2 im letzten Monat</h3>
-            <p className="mt-2 text-2xl font-semibold">{fmt(lastLicense2)}</p>
-            <p className="text-sm text-gray-500">
-              Erlös aus Lizenz 2 im letzten Monat des Planungszeitraums
+              Durchschnittliche monatliche Verkaufsmenge
             </p>
           </div>
         </div>
       </CollapsibleSection>
 
-      {/* ... Chart & CSV Section ... */}
+      {/* Lizenz-KPIs */}
+      <CollapsibleSection title="Lizenzerlöse im Detail">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">Gesamt Lizenz 1</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense1)}</p>
+            <p className="text-sm text-gray-500">
+              Summe aller Lizenz-1-Erlöse (netto)
+            </p>
+          </div>
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">Ø Lizenz 1 (Monat)</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense1 / months)}</p>
+            <p className="text-sm text-gray-500">
+              Mittelwert pro Monat
+            </p>
+          </div>
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">Lizenz 1 im letzten Monat</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmt(chartData[months-1]?.tier1 || 0)}</p>
+            <p className="text-sm text-gray-500">
+              Erlös aus Lizenz 1 im letzten Planungsmonat
+            </p>
+          </div>
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">Gesamt Lizenz 2</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense2)}</p>
+            <p className="text-sm text-gray-500">
+              Summe aller Lizenz-2-Erlöse (netto)
+            </p>
+          </div>
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">Ø Lizenz 2 (Monat)</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmt(totalLicense2 / months)}</p>
+            <p className="text-sm text-gray-500">
+              Mittelwert pro Monat
+            </p>
+          </div>
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">Lizenz 2 im letzten Monat</h3>
+            <p className="mt-2 text-2xl font-semibold">{fmt(chartData[months-1]?.tier2 || 0)}</p>
+            <p className="text-sm text-gray-500">
+              Erlös aus Lizenz 2 im letzten Planungsmonat
+            </p>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Chart & CSV */}
+      <CollapsibleSection title="Einnahmen & Marge">
+        <LicenseChart
+          data={data}
+          startYear={startYear}
+          startMonth={startMonth}
+          dataKey="tier1"
+          strokeColor="#34C759"
+          name="Lizenz 1 Erlös"
+          dataKey2="tier2"
+          strokeColor2="#007AFF"
+          name2="Lizenz 2 Erlös"
+          dataKey3="deckungsbeitragII"
+          strokeColor3="#FFD60A"
+          name3="Deckungsbeitrag II"
+          dataKey4="restgewinn"
+          strokeColor4="#FF9500"
+          name4="Restgewinn"
+        />
+        <button
+          onClick={handleExportCSV}
+          className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Chart-Daten als CSV exportieren
+        </button>
+      </CollapsibleSection>
     </div>
   );
 }
