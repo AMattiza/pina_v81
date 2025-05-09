@@ -80,20 +80,20 @@ export default function App() {
   );
 
   // calculate average per partner (12-month window)
-  let sumUnits=0;
+  let sumUnits = 0;
   newPartnersPerMonth.forEach((cSize, idx) => {
-    for (let m=0; m<12; m++){
-      if(idx+m<months){
-        if(m===0) sumUnits += cSize * unitsPerDisplay;
-        else if(m%reorderCycle===0) sumUnits += cSize * (reorderRate/100)* unitsPerDisplay;
+    for (let m = 0; m < 12; m++) {
+      if (idx + m < months) {
+        if (m === 0) sumUnits += cSize * unitsPerDisplay;
+        else if (m % reorderCycle === 0) sumUnits += cSize * (reorderRate / 100) * unitsPerDisplay;
       }
     }
   });
-  const avgUnits = sumUnits/totalNew;
-  const avgRevenue = avgUnits*sellPrice;
+  const avgUnits = sumUnits / totalNew;
+  const avgRevenue = avgUnits * sellPrice;
 
-  const fmt = v=>new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v)+' €';
-  const fmtNum = v=>new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
+  const fmt = v => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
+  const fmtNum = v => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -103,11 +103,11 @@ export default function App() {
       </CollapsibleSection>
       <CollapsibleSection title="Übersicht">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SummaryWidget title="Gesamt Neukunden" value={fmtNum(totalNew)} info="Summe aller Neukunden"/>
-          <SummaryWidget title="Kunden mit ≥1 Nachbestellung" value={fmtNum(reorders)} info="Kunden mit Nachbestellung"/>
-          <SummaryWidget title="Ø Umsatz pro Händler/Jahr" value={fmt(avgRevenue)} info="Ø Umsatz je Kunde in 12 Monaten"/>
-          <SummaryWidget title="Ø VE pro Händler/Jahr" value={fmtNum(avgUnits)} info="Ø VE je Kunde in 12 Monaten"/>
-          <SummaryWidget title="Gewinn vor Steuern je VE (€)" value={fmt((data.deckungsbeitragPerUnit - data.license1Gross - data.license2))} info="Deckungsbeitrag II pro VE minus Lizenzkosten"/>
+          <SummaryWidget title="Gesamt Neukunden" value={fmtNum(totalNew)} info="Summe aller Neukunden" />
+          <SummaryWidget title="Kunden mit ≥1 Nachbestellung" value={fmtNum(reorders)} info="Kunden mit Nachbestellung" />
+          <SummaryWidget title="Ø Umsatz pro Händler/Jahr" value={fmt(avgRevenue)} info="Ø Umsatz je Kunde in 12 Monaten" />
+          <SummaryWidget title="Ø VE pro Händler/Jahr" value={fmtNum(avgUnits)} info="Ø VE je Kunde in 12 Monaten" />
+          <SummaryWidget title="Gewinn vor Steuern je VE (€)" value={fmt((data.deckungsbeitragPerUnit - data.license1Gross - data.license2))} info="Deckungsbeitrag II pro VE minus Lizenzkosten" />
         </div>
       </CollapsibleSection>
 
@@ -121,3 +121,5 @@ export default function App() {
         />
       </CollapsibleSection>
     </div>
+  );
+}
