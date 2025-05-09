@@ -42,7 +42,7 @@ export default function App() {
     license2Threshold: 3
   });
 
-  // marginPerUnit & deckungsbeitragPerUnit automatisch aktualisieren
+  // Auto‐Update von marginPerUnit & deckungsbeitragPerUnit
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -59,12 +59,15 @@ export default function App() {
     increaseAmount,
     reorderRate,
     reorderCycle,
-    sellPrice
+    sellPrice,
+    deckungsbeitragPerUnit,
+    license1Gross,
+    license2
   } = data;
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  // Neukunden pro Monat berechnen
+  // 1) Neukunden‐Kohorten pro Monat
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -74,7 +77,7 @@ export default function App() {
         : 0)
   );
 
-  // Summary-Gesamtzahlen
+  // 2) totalNew & reorders
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
@@ -82,19 +85,49 @@ export default function App() {
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
 
-  // Ø VE pro Kunde im ersten Jahr (inkl. Erstbestellung + m=1…12)
+  // 3) Gesamt‐VE in den ersten 12 Monaten aller Kunden
   let totalUnitsAllCustomers = 0;
   newPartnersPerMonth.forEach(cohortSize => {
-    let unitsPerCustomerFirstYear = unitsPerDisplay; // Erstbestellung
-    for (let m = 1; m <= 12; m++) {
+    let vePerCustomer = unitsPerDisplay;            // Erstbestellung (Monat 0)
+    for (let m = 1; m <= 11; m++) {                  // Nachbestellungen in Monat 1…11
       if (reorderCycle > 0 && m % reorderCycle === 0) {
-        unitsPerCustomerFirstYear += (reorderRate / 100) * unitsPerDisplay;
+        vePerCustomer += (reorderRate / 100) * unitsPerDisplay;
       }
     }
-    totalUnitsAllCustomers += cohortSize * unitsPerCustomerFirstYear;
+    totalUnitsAllCustomers += cohortSize * vePerCustomer;
   });
-  const avgUnits = totalNew > 0 ? totalUnitsAllCustomers / totalNew : 0;
-  const avgRevenue = avgUnits * sellPrice;
+
+  // Ø VE pro Händler/Jahr (alle)
+  const avgUnitsAll =
+    totalNew > 0 ? totalUnitsAllCustomers / totalNew : 0;
+
+  // 4) Anzahl der Händler mit ≥1 Nachbestellung
+  const reorderersCount = Math.round(
+    newPartnersPerMonth
+      .slice(0, months - reorderCycle)
+      .reduce((sum, cohortSize) => sum + cohortSize * (reorderRate / 100), 0)
+  );
+
+  // Ø VE pro Händler/Jahr (nur Reorderer)
+  const avgUnitsReorderers =
+    reorderersCount > 0
+      ? totalUnitsAllCustomers / reorderersCount
+      : 0;
+
+  // Ø Umsatz pro Händler/Jahr (alle)
+  const avgRevenueAll = avgUnitsAll * sellPrice;
+
+  // Formatter
+  const fmt = v =>
+    new Intl.NumberFormat('de-DE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(v) + ' €';
+  const fmtNum = v =>
+    new Intl.NumberFormat('de-DE', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(v);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -107,15 +140,31 @@ export default function App() {
       </CollapsibleSection>
 
       <CollapsibleSection title="Übersicht">
+        {/* Bestehende Zusammenfassung */}
         <SummarySection
           totalNew={totalNew}
           reorders={reorders}
-          avgUnits={avgUnits}
-          avgRevenue={avgRevenue}
-          deckungsbeitragPerUnit={data.deckungsbeitragPerUnit}
-          license1Gross={data.license1Gross}
-          license2={data.license2}
+          avgUnits={avgUnitsAll}
+          avgRevenue={avgRevenueAll}
+          deckungsbeitragPerUnit={deckungsbeitragPerUnit}
+          license1Gross={license1Gross}
+          license2={license2}
         />
+
+        {/* Neues Widget: Ø VE nur über Reorderer */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div className="p-4 bg-gray-100 rounded-xl text-center">
+            <h3 className="font-medium">
+              Ø VE nur Reorderer/Jahr
+            </h3>
+            <p className="text-sm text-gray-500 mb-2">
+              Durchschnittliche Verkaufseinheiten in den ersten 12 Monaten pro Händler, der mindestens eine Nachbestellung getätigt hat
+            </p>
+            <p className="mt-2 text-2xl font-semibold">
+              {fmtNum(avgUnitsReorderers)}
+            </p>
+          </div>
+        </div>
       </CollapsibleSection>
 
       <CollapsibleSection title="Einnahmen & Marge">
