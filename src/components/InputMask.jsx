@@ -1,123 +1,69 @@
 import React from 'react';
-import { ResponsiveContainer, LineChart, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
 
-// Custom Tooltip zeigt alle gewünschten Kennzahlen mit deutscher Formatierung an
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload || payload.length === 0) return null;
-  const d = payload[0].payload;
-  const fmtInt = value => new Intl.NumberFormat('de-DE').format(value);
-  const fmtDec = value => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+export default function InputMask({ data, onChange }) {
+  const handleChange = (name, value) => {
+    let v;
+    if (name === 'startDate') v = value;
+    else v = parseFloat(value) || 0;
+    onChange({ ...data, [name]: v });
+  };
 
-  return (
-    <div className="bg-white p-4 border rounded-lg shadow-md">
-      <p className="font-semibold">{label}</p>
-      <p>Neue Kunden: {fmtInt(d.newCustomers)}</p>
-      <p>Nachbesteller: {fmtInt(d.reorderCustomers)}</p>
-      <p>Rohertrag Pina: {fmtDec(d.bruttoRohertrag)} €</p>
-      <p>Vertriebskosten: {fmtDec(d.vertriebsKosten)} €</p>
-      <p>Logistikkosten: {fmtDec(d.logistikKosten)} €</p>
-      <p>Deckungsbeitrag II: {fmtDec(d.deckungsbeitragII)} €</p>
-      <p>Lizenz 1 Erlös: {fmtDec(d.tier1)} €</p>
-      <p>Lizenz 2 Erlös: {fmtDec(d.tier2)} €</p>
-      <p>Restgewinn Pina: {fmtDec(d.restgewinn)} €</p>
-    </div>
-  );
-};
+  const fields = [
+    { section: 'Basisdaten', items: [
+        { label:'Planungszeitraum (Monate)', name:'months', type:'slider', min:12,max:120,step:12 },
+        { label:'Startdatum der Planung', name:'startDate', type:'month' },
+      ] },
+    { section: 'Produktkalkulation', items: [
+        { label:'Einkaufspreis Pina (€ je VE)', name:'costPrice', type:'slider', min:0,max:20,step:0.1 },
+        { label:'Verkaufspreis Pina (€ je VE)', name:'sellPrice', type:'slider', min:0,max:20,step:0.1 },
+        { label:'UVP (€ je VE)', name:'uvp', type:'slider', min:0,max:20,step:0.1 },
+        { label:'Rohertrag Pina pro VE (€)', name:'marginPerUnit', type:'readOnly' },
+      ] },
+    { section:'Händlerwachstum', items: [
+        { label:'Start-Neukunden/Monat', name:'newPartners', type:'slider', min:0,max:20,step:1 },
+        { label:'Erhöhungszyklus (Monate)', name:'increaseInterval', type:'slider', min:1,max:24,step:1 },
+        { label:'Erhöhung pro Zyklus (Neukunden)', name:'increaseAmount', type:'slider', min:0,max:20,step:1 },
+      ] },
+    { section:'Bestellverhalten', items: [
+        { label:'Nachbesteller-Quote (%)', name:'reorderRate', type:'slider', min:0,max:100,step:5 },
+        { label:'Nachbestell-Rhythmus (Monate)', name:'reorderCycle', type:'slider', min:1,max:12,step:1 },
+      ] },
+    { section:'Kostenplanung (Pina)', items: [
+        { label:'Vertriebskosten je VE (€)', name:'salesCost', type:'slider', min:0,max:5,step:0.1 },
+        { label:'Logistikkosten je VE (€)', name:'logisticsCost', type:'slider', min:0,max:5,step:0.1 },
+        { label:'Deckungsbeitrag II pro VE (€)', name:'deckungsbeitragPerUnit', type:'readOnly' },
+      ] },
+    { section:'Lizenz 1 / Städteserie (C-Hub)', items: [
+        { label:'Lizenz 1 Einheit (€)', name:'license1Gross', type:'slider', min:0,max:5,step:0.01 },
+        { label:'Postkartendruck €/Stück', name:'postcardCost', type:'slider', min:0,max:0.25,step:0.01 },
+        { label:'Grafik-Kosten/Einheit (€)', name:'graphicShare', type:'slider', min:0,max:1,step:0.01 },
+      ] },
+    { section:'Lizenz 2 / Website & Shop (C-Hub)', items: [
+        { label:'Lizenz 2 €/Einheit', name:'license2', type:'slider', min:0,max:5,step:0.01 },
+        { label:'Schwelle Lizenz 2 (Händler)', name:'license2Threshold', type:'slider', min:0,max:200,step:1 },
+      ] },
+  ];
 
-const LicenseChart = ({
-  data,
-  startYear,
-  startMonth,
-  dataKey = 'tier1',
-  dataKey2 = 'tier2',
-  dataKey3 = 'deckungsbeitragII',
-  dataKey4 = 'restgewinn',
-  strokeColor = '#34C759',
-  strokeColor2 = '#007AFF',
-  strokeColor3 = '#FFD60A',
-  strokeColor4 = '#FF9500',
-  name = 'Lizenz 1 Erlös',
-  name2 = 'Lizenz 2 Erlös',
-  name3 = 'Deckungsbeitrag II',
-  name4 = 'Restgewinn'
-}) => {
-  const {
-    months,
-    newPartners,
-    increaseInterval,
-    increaseAmount,
-    unitsPerDisplay,
-    license1Gross,
-    postcardCost,
-    graphicShare,
-    license2,
-    license2Threshold,
-    reorderRate,
-    reorderCycle,
-    costPrice,
-    sellPrice,
-    salesCost,
-    logisticsCost
-  } = data;
-
-  const net1 = Math.max(license1Gross - postcardCost - graphicShare, 0);
-  const newPartnersPerMonth = Array.from({ length: months }, (_, j) =>
-    newPartners + (increaseInterval > 0 ? Math.floor(j / increaseInterval) * increaseAmount : 0)
-  );
-
-  const chartData = newPartnersPerMonth.map((cSize, i) => {
-    const yyyy = startYear + Math.floor((startMonth - 1 + i) / 12);
-    const mm = ((startMonth - 1 + i) % 12) + 1;
-    const monthLabel = String(mm).padStart(2, '0') + '/' + yyyy;
-
-    const baseUnits = cSize * unitsPerDisplay;
-    let reorderUnits = 0;
-    newPartnersPerMonth.forEach((cs, j) => {
-      const age = i + 1 - (j + 1);
-      if (reorderCycle > 0 && age >= reorderCycle && age % reorderCycle === 0) {
-        reorderUnits += cs * (reorderRate / 100) * unitsPerDisplay;
-      }
-    });
-    const totalUnits = baseUnits + reorderUnits;
-
-    const bruttoRohertrag = (sellPrice - costPrice) * totalUnits;
-    const vertriebsKosten = salesCost * totalUnits;
-    const logistikKosten = logisticsCost * totalUnits;
-    const deckungsbeitragII = bruttoRohertrag - vertriebsKosten - logistikKosten;
-    const tier1 = net1 * totalUnits;
-    const totalPartners = newPartnersPerMonth.slice(0, i + 1).reduce((a, b) => a + b, 0);
-    const tier2 = totalPartners > license2Threshold ? license2 * totalUnits : 0;
-    const restgewinn = deckungsbeitragII - tier1 - tier2;
-
-    return {
-      month: i + 1,
-      monthLabel,
-      newCustomers: cSize,
-      reorderCustomers: Math.round(cSize * (reorderRate / 100)),
-      bruttoRohertrag: Number(bruttoRohertrag.toFixed(2)),
-      vertriebsKosten: Number(vertriebsKosten.toFixed(2)),
-      logistikKosten: Number(logistikKosten.toFixed(2)),
-      deckungsbeitragII: Number(deckungsbeitragII.toFixed(2)),
-      tier1: Number(tier1.toFixed(2)),
-      tier2: Number(tier2.toFixed(2)),
-      restgewinn: Number(restgewinn.toFixed(2))
-    };
-  });
-
-  return (
-    <ResponsiveContainer width="100%" height={400}>
-      <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-        <XAxis dataKey="month" />
-        <YAxis tick={false} axisLine={false} tickLine={false} />
-        <Tooltip content={<CustomTooltip />} />
-        <Legend verticalAlign="top" />
-        <Line type="monotone" dataKey="tier1" stroke={strokeColor} name={name} dot={false} strokeWidth={3} />
-        <Line type="monotone" dataKey="tier2" stroke={strokeColor2} name={name2} dot={false} strokeWidth={3} />
-        <Line type="monotone" dataKey="deckungsbeitragII" stroke={strokeColor3} name={name3} dot={false} strokeWidth={3} />
-        <Line type="monotone" dataKey="restgewinn" stroke={strokeColor4} name={name4} dot={false} strokeWidth={3} />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-};
-
-export default LicenseChart;
+  return ( <div className="space-y-6">
+    {fields.map((g,i)=><fieldset key={i} className="p-4 border rounded-2xl bg-gray-50">
+      <legend className="text-lg font-medium mb-2">{g.section}</legend>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {g.items.map(item=>(
+          <div key={item.name} className="flex items-center space-x-4">
+            <label className="w-1/3 text-sm text-gray-700">{item.label}</label>
+            {item.type==='month'?(
+              <input type="month" value={data[item.name]} onChange={e=>handleChange(item.name,e.target.value)} className="flex-1 p-1"/>
+            ): item.type==='readOnly' ?(
+              <input type="number" readOnly value={data[item.name]} className="flex-1 p-1 bg-gray-100"/>
+            ):(
+              <div className="flex-1">
+                <input type="range" min={item.min} max={item.max} step={item.step} value={data[item.name]} onChange={e=>handleChange(item.name,e.target.value)} className="w-full"/>
+                <div className="text-sm text-right">{data[item.name]}</div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </fieldset>)}
+  </div> );
+}
