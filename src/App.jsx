@@ -80,19 +80,9 @@ export default function App() {
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
 
-  // average units & revenue
-  let sumUnits = 0;
-  newPartnersPerMonth.forEach((cSize, idx) => {
-    for (let m = 0; m < 12; m++) {
-      if (idx + m < months) {
-        if (m === 0) sumUnits += cSize * unitsPerDisplay;
-        else if (m % reorderCycle === 0)
-          sumUnits +=
-            cSize * (reorderRate / 100) * unitsPerDisplay;
-      }
-    }
-  });
-  const avgUnits = sumUnits / totalNew;
+  // Ø VE pro Händler/Jahr & Ø Umsatz pro Händler/Jahr
+  const reorderEventsPerYear = reorderCycle > 0 ? Math.floor(12 / reorderCycle) : 0;
+  const avgUnits = unitsPerDisplay * (1 + (reorderRate / 100) * reorderEventsPerYear);
   const avgRevenue = avgUnits * sellPrice;
 
   return (
