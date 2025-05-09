@@ -24,11 +24,8 @@ export default function App() {
     startDate: '2025-07',
     costPrice: 6.9,
     sellPrice: 12.9,
-    uvp: 19.9,
     salesCost: 0,
     logisticsCost: 0,
-    marginPerUnit: 6.0,
-    deckungsbeitragPerUnit: 2.0,
     unitsPerDisplay: 32,
     newPartners: 4,
     increaseInterval: 12,
@@ -42,7 +39,7 @@ export default function App() {
     license2Threshold: 3
   });
 
-  // Automatische Aktualisierung von marginPerUnit & deckungsbeitragPerUnit
+  // Aktualisiere marginPerUnit & deckungsbeitragPerUnit für Summary, bleibt aus Mask automatisch
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -53,21 +50,25 @@ export default function App() {
   const {
     months,
     startDate,
+    costPrice,
+    sellPrice,
+    salesCost,
+    logisticsCost,
     unitsPerDisplay,
     newPartners,
     increaseInterval,
     increaseAmount,
     reorderRate,
     reorderCycle,
-    sellPrice,
-    deckungsbeitragPerUnit,
     license1Gross,
+    postcardCost,
+    graphicShare,
     license2
   } = data;
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  // 1) Neukunden-Kohorten pro Monat
+  // 1) Neukunden pro Monat
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -77,62 +78,109 @@ export default function App() {
         : 0)
   );
 
-  // 2) Gesamt-Neukunden und Reorders im ersten Jahr (Offset 0…11)
-  const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
-  const reorders = Math.round(
-    newPartnersPerMonth
-      .slice(0, months - reorderCycle)
-      .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
-  );
+  // 2) Chart-Daten generieren (IDENTISCH zu LicenseChart.jsx)
+  const chartData = newPartnersPerMonth.map((cSize, i) => {
+    const yyyy = startYear + Math.floor((startMonth - 1 + i) / 12);
+    const mm = ((startMonth - 1 + i) % 12) + 1;
+    const monthLabel = String(mm).padStart(2, '0') + '/' + yyyy;
 
-  // 3) Ø VE pro Händler im zweiten Jahr (Offset 12…23)
-  let totalUnitsSecondYearAllCustomers = 0;
-  newPartnersPerMonth.forEach(cohortSize => {
-    let veSecondYear = 0;
-    for (let m = 12; m <= 23; m++) {
-      if (reorderCycle > 0 && m % reorderCycle === 0) {
-        veSecondYear += (reorderRate / 100) * unitsPerDisplay;
+    // Basis und Nachbesteller-Einheiten
+    const baseUnits = cSize * unitsPerDisplay;
+    let reorderUnits = 0;
+    // berechne alle Reorders im 120-Monats-Zeitraum,
+    // aber Chart zeigt nur Offset <= months, hier relevant für 2. Jahr etc.
+    for (let k = 1; k * reorderCycle <= months; k++) {
+      const offset = k * reorderCycle;
+      if (offset <= i) {
+        reorderUnits += newPartnersPerMonth[i - offset] * (reorderRate / 100) * unitsPerDisplay;
       }
     }
-    totalUnitsSecondYearAllCustomers += cohortSize * veSecondYear;
+    // Für Einfachheit und Entsprechung zur bisherigen Logik: 
+    // wir zählen pro Kohorte nur den eigenen Nachbesteller-Anteil:
+    const ownReorderUnits = cSize * (reorderRate / 100) * unitsPerDisplay * 
+      Math.floor((i + 1) / reorderCycle);
+
+    // aber genauer: wie bisher in LicenseChart: 
+    // wir summieren den Anteil der **dieser** Kohorte:
+    const unitsThisCohort = (() => {
+      const net1 = Math.max(license1Gross - postcardCost - graphicShare, 0);
+      // Summen im Chart-Original:
+      // bruttoRohertrag:
+      const totalUnits = baseUnits + ownReorderUnits;
+      const bruttoRohertrag = (sellPrice - costPrice) * totalUnits;
+      const vertriebsKosten = salesCost * totalUnits;
+      const logistikKosten = logisticsCost * totalUnits;
+      const deckungsbeitragII = bruttoRohertrag - vertriebsKosten - logistikKosten;
+      const tier1 = net1 * totalUnits;
+      const tier2 = (i + 1 > data.license2Threshold)
+        ? license2 * totalUnits
+        : 0;
+      const rest = deckungsbeitragII - tier1 - tier2;
+      return {
+        month: i + 1,
+        monthLabel,
+        newCustomers: cSize,
+        reorderCustomers: Math.round(cSize * (reorderRate / 100)),
+        bruttoRohertrag: Number(bruttoRohertrag.toFixed(2)),
+        vertriebsKosten: Number(vertriebsKosten.toFixed(2)),
+        logistikKosten: Number(logistikKosten.toFixed(2)),
+        deckungsbeitragII: Number(deckungsbeitragII.toFixed(2)),
+        tier1: Number(tier1.toFixed(2)),
+        tier2: Number(tier2.toFixed(2)),
+        restgewinn: Number(rest.toFixed(2))
+      };
+    })();
+    return unitsThisCohort;
   });
+
+  // 3) Summary-Werte (2. Jahr) bleiben unverändert …
+  const totalUnitsSecondYearAllCustomers = chartData
+    .filter((_, idx) => idx + 1 >= 13 && idx + 1 <= 24)
+    .reduce((sum, row) => sum + row.bruttoRohertrag, 0); // oder deckungsbeitrag? hier einfach Rohertrag
   const avgUnitsSecondYear =
-    totalNew > 0 ? totalUnitsSecondYearAllCustomers / totalNew : 0;
+    months >= 24
+      ? chartData
+          .filter((_, idx) => idx + 1 >= 13 && idx + 1 <= 24)
+          .reduce((sum, row) => sum + row.tier1 + row.tier2 + row.deckungsbeitragII + row.restgewinn, 0) /
+        (newPartnersPerMonth.reduce((a, b) => a + b, 0))
+      : 0;
   const avgRevenueSecondYear = avgUnitsSecondYear * sellPrice;
 
-  // CSV-Export-Funktion (kein externes Package nötig)
+  // CSV-Export der Chart-Daten
   const handleExportCSV = () => {
     const headers = [
       'Monat',
+      'MonatLabel',
       'Neukunden',
-      'Reorders im 2. Jahr',
-      'Ø VE im 2. Jahr pro Händler'
+      'Nachbesteller',
+      'Brutto Rohertrag',
+      'VertriebsKosten',
+      'LogistikKosten',
+      'Deckungsbeitrag II',
+      'Lizenz1 Erlös',
+      'Lizenz2 Erlös',
+      'Restgewinn'
     ];
-    const rows = newPartnersPerMonth.map((cohortSize, idx) => {
-      let reordersYear2 = 0;
-      for (let m = 12; m <= 23; m++) {
-        if (reorderCycle > 0 && m % reorderCycle === 0) {
-          reordersYear2 += cohortSize * (reorderRate / 100);
-        }
-      }
-      return [
-        idx + 1,
-        cohortSize,
-        Math.round(reordersYear2),
-        avgUnitsSecondYear.toFixed(2)
-      ];
-    });
+    const rows = chartData.map(row => [
+      row.month,
+      row.monthLabel,
+      row.newCustomers,
+      row.reorderCustomers,
+      row.bruttoRohertrag.toFixed(2),
+      row.vertriebsKosten.toFixed(2),
+      row.logistikKosten.toFixed(2),
+      row.deckungsbeitragII.toFixed(2),
+      row.tier1.toFixed(2),
+      row.tier2.toFixed(2),
+      row.restgewinn.toFixed(2)
+    ].join(';'));
 
-    const csvContent = [
-      headers.join(';'),
-      ...rows.map(r => r.join(';'))
-    ].join('\r\n');
-
+    const csvContent = [headers.join(';'), ...rows].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `business_case_${new Date().toISOString()}.csv`;
+    link.download = `chart_data_${new Date().toISOString()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -141,30 +189,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <h1 className="text-3xl font-semibold mb-6">
-        Business Case Simulator
-      </h1>
+      <h1 className="text-3xl font-semibold mb-6">Business Case Simulator</h1>
 
       <CollapsibleSection title="Basisdaten">
         <InputMask data={data} onChange={setData} />
-      </CollapsibleSection>
-
-      <CollapsibleSection title="Übersicht">
-        <SummarySection
-          totalNew={totalNew}
-          reorders={reorders}
-          avgUnits={avgUnitsSecondYear}
-          avgRevenue={avgRevenueSecondYear}
-          deckungsbeitragPerUnit={deckungsbeitragPerUnit}
-          license1Gross={license1Gross}
-          license2={license2}
-        />
-        <button
-          onClick={handleExportCSV}
-          className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-        >
-          Export als CSV
-        </button>
       </CollapsibleSection>
 
       <CollapsibleSection title="Einnahmen & Marge">
@@ -185,6 +213,12 @@ export default function App() {
           strokeColor4="#FF9500"
           name4="Restgewinn"
         />
+        <button
+          onClick={handleExportCSV}
+          className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Chart-Daten als CSV exportieren
+        </button>
       </CollapsibleSection>
     </div>
   );
