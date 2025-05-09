@@ -42,6 +42,7 @@ export default function App() {
     license2Threshold: 3
   });
 
+  // Automatische Aktualisierung von marginPerUnit und deckungsbeitragPerUnit
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -63,6 +64,7 @@ export default function App() {
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
+  // Neukunden pro Monat berechnen
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -72,6 +74,7 @@ export default function App() {
         : 0)
   );
 
+  // Summary-Werte insgesamt
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
@@ -79,12 +82,28 @@ export default function App() {
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
 
-  // Hier die korrigierte Zeile:
-  const reorderEventsPerYear = reorderCycle > 0
-    ? Math.floor((12 - 1) / reorderCycle)
+  // Ø VE pro Händler/Jahr (durchschnittliche VE in den ersten 12 Monaten pro Kunde)
+  let totalUnitsAllCustomers = 0;
+  newPartnersPerMonth.forEach((cohortSize, i) => {
+    // VE für einen einzelnen Kunden dieser Kohorte in den ersten 12 Monaten
+    let unitsPerCustomerFirstYear = 0;
+    // Erstbestellung
+    unitsPerCustomerFirstYear += unitsPerDisplay;
+    // Nachbestellungen in den Monaten 1 bis 11
+    for (let m = 1; m < 12; m++) {
+      if (reorderCycle > 0 && m % reorderCycle === 0) {
+        unitsPerCustomerFirstYear += (reorderRate / 100) * unitsPerDisplay;
+      }
+    }
+    // Multipliziere mit Kohortengröße
+    totalUnitsAllCustomers += cohortSize * unitsPerCustomerFirstYear;
+  });
+  const totalCustomers = totalNew;
+  const avgUnits = totalCustomers > 0
+    ? totalUnitsAllCustomers / totalCustomers
     : 0;
 
-  const avgUnits = unitsPerDisplay * (1 + (reorderRate / 100) * reorderEventsPerYear);
+  // Ø Umsatz pro Händler/Jahr
   const avgRevenue = avgUnits * sellPrice;
 
   return (
