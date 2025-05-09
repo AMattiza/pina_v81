@@ -36,10 +36,12 @@ export default function App() {
     postcardCost: 0.1,
     graphicShare: 0.2,
     license2: 1.3,
-    license2Threshold: 3
+    license2Threshold: 3,
+    marginPerUnit: 6.0,
+    deckungsbeitragPerUnit: 2.0
   });
 
-  // Automatische Aktualisierung von marginPerUnit & deckungsbeitragPerUnit
+  // Auto-update marginPerUnit & deckungsbeitragPerUnit
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -63,12 +65,15 @@ export default function App() {
     license1Gross,
     postcardCost,
     graphicShare,
-    license2
+    license2,
+    license2Threshold,
+    marginPerUnit,
+    deckungsbeitragPerUnit
   } = data;
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  // 1) Neukunden pro Monat
+  // 1) Neukunden-Kohorten pro Monat
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -85,7 +90,6 @@ export default function App() {
       .slice(0, months - reorderCycle)
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
-  // Ø VE und Ø Umsatz pro Händler im ersten Jahr
   let totalUnitsFirstYear = 0;
   newPartnersPerMonth.forEach(cohortSize => {
     let ve = unitsPerDisplay;
@@ -99,17 +103,19 @@ export default function App() {
   const avgUnitsFirstYear = totalNew > 0 ? totalUnitsFirstYear / totalNew : 0;
   const avgRevenueFirstYear = avgUnitsFirstYear * sellPrice;
 
-  // 3) Chart-Daten für LicenseChart (zweites Jahr Offset 12…23)
+  // 3) Chart-Daten (zweites Jahr Offset 12…23)
   const chartData = newPartnersPerMonth.map((cSize, i) => {
     const yyyy = startYear + Math.floor((startMonth - 1 + i) / 12);
     const mm = ((startMonth - 1 + i) % 12) + 1;
-    const monthLabel = `${String(mm).padStart(2, '0')}/${yyyy}`;
+    const monthLabel = `${String(mm).padStart(2,'0')}/${yyyy}`;
 
     const baseUnits = cSize * unitsPerDisplay;
     let reorderUnits = 0;
-    // eigene Kohorte eigene Reorders
-    for (let m = 1; m * reorderCycle <= i; m++) {
-      reorderUnits += cSize * (reorderRate / 100) * unitsPerDisplay;
+    for (let m = 1; m * reorderCycle <= 23; m++) {
+      const offset = m * reorderCycle;
+      if (offset >= 12 && offset <= 23) {
+        reorderUnits += cSize * (reorderRate/100) * unitsPerDisplay;
+      }
     }
     const totalUnits = baseUnits + reorderUnits;
     const bruttoRohertrag = (sellPrice - costPrice) * totalUnits;
@@ -118,14 +124,14 @@ export default function App() {
     const deckungsbeitragII = bruttoRohertrag - vertriebsKosten - logistikKosten;
     const net1 = Math.max(license1Gross - postcardCost - graphicShare, 0);
     const tier1 = net1 * totalUnits;
-    const tier2 = cSize > data.license2Threshold ? license2 * totalUnits : 0;
+    const tier2 = cSize > license2Threshold ? license2 * totalUnits : 0;
     const rest = deckungsbeitragII - tier1 - tier2;
 
     return {
       month: i + 1,
       monthLabel,
       newCustomers: cSize,
-      reorderCustomers: Math.round(cSize * (reorderRate / 100)),
+      reorderCustomers: Math.round(cSize * (reorderRate/100)),
       bruttoRohertrag: Number(bruttoRohertrag.toFixed(2)),
       vertriebsKosten: Number(vertriebsKosten.toFixed(2)),
       logistikKosten: Number(logistikKosten.toFixed(2)),
@@ -143,9 +149,9 @@ export default function App() {
       'MonatLabel',
       'Neukunden',
       'Nachbesteller',
-      'Rohertrag',
-      'Vertriebskosten',
-      'Logistikkosten',
+      'BruttoRohertrag',
+      'VertriebsKosten',
+      'LogistikKosten',
       'DeckungsbeitragII',
       'Lizenz1',
       'Lizenz2',
@@ -184,22 +190,38 @@ export default function App() {
 
       {/* 1: Basisdaten & Produktkalkulation */}
       <CollapsibleSection title="Basisdaten & Produktkalkulation">
-        <InputMask section="basisProdukt" data={data} onChange={setData} />
+        <InputMask
+          data={data}
+          onChange={setData}
+          sections={['Basisdaten','Produktkalkulation']}
+        />
       </CollapsibleSection>
 
       {/* 2: Händlerwachstum & Bestellverhalten */}
       <CollapsibleSection title="Händlerwachstum & Bestellverhalten">
-        <InputMask section="wachstumBestellung" data={data} onChange={setData} />
+        <InputMask
+          data={data}
+          onChange={setData}
+          sections={['Händlerwachstum','Bestellverhalten']}
+        />
       </CollapsibleSection>
 
       {/* 3: Kostenplanung (Pina) */}
       <CollapsibleSection title="Kostenplanung (Pina)">
-        <InputMask section="kostenPina" data={data} onChange={setData} />
+        <InputMask
+          data={data}
+          onChange={setData}
+          sections={['Kostenplanung (Pina)']}
+        />
       </CollapsibleSection>
 
       {/* 4: Lizenz 1 / Städteserie & Lizenz 2 / Website & Shop */}
       <CollapsibleSection title="Lizenz 1 / Städteserie (C-Hub) & Lizenz 2 / Website & Shop (C-Hub)">
-        <InputMask section="lizenzCHub" data={data} onChange={setData} />
+        <InputMask
+          data={data}
+          onChange={setData}
+          sections={['Lizenz 1 / Städteserie (C-Hub)','Lizenz 2 / Website & Shop (C-Hub)']}
+        />
       </CollapsibleSection>
 
       {/* Übersicht: KPI-Widgets */}
@@ -209,7 +231,7 @@ export default function App() {
           reorders={reorders}
           avgUnits={avgUnitsFirstYear}
           avgRevenue={avgRevenueFirstYear}
-          deckungsbeitragPerUnit={data.deckungsbeitragPerUnit}
+          deckungsbeitragPerUnit={deckungsbeitragPerUnit}
           license1Gross={license1Gross}
           license2={license2}
         />
