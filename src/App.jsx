@@ -35,9 +35,12 @@ export default function App() {
     postcardCost: 0.1,
     graphicShare: 0.2,
     license2: 1.3,
-    license2Threshold: 3
+    license2Threshold: 3,
+    marginPerUnit: 0,
+    deckungsbeitragPerUnit: 0
   });
 
+  // marginPerUnit & deckungsbeitragPerUnit berechnen
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -46,22 +49,26 @@ export default function App() {
   }, [data.sellPrice, data.costPrice, data.salesCost, data.logisticsCost]);
 
   const {
-    months, startDate, costPrice, sellPrice, salesCost, logisticsCost,
-    unitsPerDisplay, newPartners, increaseInterval, increaseAmount,
-    reorderRate, reorderCycle, license1Gross, postcardCost, graphicShare,
-    license2, license2Threshold, deckungsbeitragPerUnit
+    months, startDate, costPrice, sellPrice,
+    salesCost, logisticsCost, unitsPerDisplay,
+    newPartners, increaseInterval, increaseAmount,
+    reorderRate, reorderCycle,
+    license1Gross, postcardCost, graphicShare,
+    license2, license2Threshold, marginPerUnit, deckungsbeitragPerUnit
   } = data;
+
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
+  // 1) Neukunden-Kohorten
   const newPartnersPerMonth = Array.from({ length: months }, (_, j) =>
     newPartners + (increaseInterval > 0 ? Math.floor(j / increaseInterval) * increaseAmount : 0)
   );
 
-  // KPI Übersicht (erstes Jahr)
+  // 2) KPI – erstes Jahr
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
-      .slice(0, months - reorderCycle)
+      .slice(0, Math.max(0, months - reorderCycle))
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
   let totalUnitsFirstYear = 0;
@@ -77,17 +84,18 @@ export default function App() {
   const avgUnitsFirstYear = totalNew > 0 ? totalUnitsFirstYear / totalNew : 0;
   const avgRevenueFirstYear = avgUnitsFirstYear * sellPrice;
 
-  // Chart-Daten (zweites Jahr)
+  // 3) Chart-Daten (2. Jahr)
   const chartData = newPartnersPerMonth.map((cSize, i) => {
     const yyyy = startYear + Math.floor((startMonth - 1 + i) / 12);
     const mm = ((startMonth - 1 + i) % 12) + 1;
-    const monthLabel = `${String(mm).padStart(2,'0')}/${yyyy}`;
+    const monthLabel = `${String(mm).padStart(2, '0')}/${yyyy}`;
+
     const baseUnits = cSize * unitsPerDisplay;
     let reorderUnits = 0;
-    for (let k = 1; k * reorderCycle <= i; k++) {
+    for (let k = 1; k * reorderCycle <= i + 1; k++) {
       const offset = k * reorderCycle;
       if (offset >= 12 && offset <= 23) {
-        reorderUnits += cSize * (reorderRate/100) * unitsPerDisplay;
+        reorderUnits += cSize * (reorderRate / 100) * unitsPerDisplay;
       }
     }
     const totalUnits = baseUnits + reorderUnits;
@@ -99,25 +107,82 @@ export default function App() {
     const tier1 = net1 * totalUnits;
     const tier2 = cSize > license2Threshold ? license2 * totalUnits : 0;
     const rest = deckungsbeitragII - tier1 - tier2;
+
     return {
-      month: i + 1, monthLabel, newCustomers: cSize,
-      reorderCustomers: Math.round(cSize * (reorderRate/100)),
-      bruttoRohertrag, vertriebsKosten, logistikKosten,
-      deckungsbeitragII, tier1, tier2, restgewinn: rest, totalUnits
+      month: i + 1,
+      monthLabel,
+      newCustomers: cSize,
+      reorderCustomers: Math.round(cSize * (reorderRate / 100)),
+      bruttoRohertrag: Number(bruttoRohertrag.toFixed(2)),
+      vertriebsKosten: Number(vertriebsKosten.toFixed(2)),
+      logistikKosten: Number(logistikKosten.toFixed(2)),
+      deckungsbeitragII: Number(deckungsbeitragII.toFixed(2)),
+      tier1: Number(tier1.toFixed(2)),
+      tier2: Number(tier2.toFixed(2)),
+      restgewinn: Number(rest.toFixed(2)),
+      totalUnits
     };
   });
 
-  // Lizenz-KPIs
+  // 4) Lizenz-KPIs & Gesamt-VE
   const totalLicense1 = chartData.reduce((sum, r) => sum + r.tier1, 0);
-  const avgMonthlyLicense1 = totalLicense1 / months;
   const totalLicense2 = chartData.reduce((sum, r) => sum + r.tier2, 0);
-  const avgMonthlyLicense2 = totalLicense2 / months;
   const totalUnitsAll = chartData.reduce((sum, r) => sum + r.totalUnits, 0);
 
-  const fmt = v => new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v) + ' €';
-  const fmtNum = v => new Intl.NumberFormat('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
+  // CSV-Export
+  const handleExportCSV = () => {
+    const headers = [
+      'Monat',
+      'MonatLabel',
+      'Neukunden',
+      'Nachbesteller',
+      'BruttoRohertrag',
+      'VertriebsKosten',
+      'LogistikKosten',
+      'DeckungsbeitragII',
+      'Lizenz1',
+      'Lizenz2',
+      'Restgewinn',
+      'TotalUnits'
+    ];
+    const rows = chartData.map(r =>
+      [
+        r.month,
+        r.monthLabel,
+        r.newCustomers,
+        r.reorderCustomers,
+        r.bruttoRohertrag,
+        r.vertriebsKosten,
+        r.logistikKosten,
+        r.deckungsbeitragII,
+        r.tier1,
+        r.tier2,
+        r.restgewinn,
+        r.totalUnits
+      ].join(';')
+    );
+    const csv = [headers.join(';'), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `chart_data_${new Date().toISOString()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
-  // CSV-Export omitted for brevity...
+  const fmt = v =>
+    new Intl.NumberFormat('de-DE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(v) + ' €';
+  const fmtNum = v =>
+    new Intl.NumberFormat('de-DE', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(v);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -141,12 +206,12 @@ export default function App() {
           <div className="p-4 bg-gray-100 rounded-xl text-center">
             <h3 className="font-medium">Gesamt Neukunden</h3>
             <p className="mt-2 text-2xl font-semibold">{fmtNum(totalNew)}</p>
-            <p className="text-sm text-gray-500">Summe aller Neukunden innerhalb des ersten Jahres</p>
+            <p className="text-sm text-gray-500">Summe aller Neukunden im ersten Jahr</p>
           </div>
           <div className="p-4 bg-gray-100 rounded-xl text-center">
             <h3 className="font-medium">Kunden mit ≥1 Nachbestellung</h3>
             <p className="mt-2 text-2xl font-semibold">{fmtNum(reorders)}</p>
-            <p className="text-sm text-gray-500">Anzahl der Neukunden mit mind. einer Nachbestellung im ersten Jahr</p>
+            <p className="text-sm text-gray-500">Anzahl mit mind. einer Nachbestellung im ersten Jahr</p>
           </div>
         </div>
       </CollapsibleSection>
@@ -170,7 +235,7 @@ export default function App() {
         <div className="p-4 bg-gray-100 rounded-xl text-center">
           <h3 className="font-medium">VE insgesamt Ende Planungszeitraum</h3>
           <p className="mt-2 text-2xl font-semibold">{fmtNum(totalUnitsAll)}</p>
-          <p className="text-sm text-gray-500">Summe aller verkauften Einheiten über {months} Monate</p>
+          <p className="text-sm text-gray-500">Summe aller VE über {months} Monate</p>
         </div>
       </CollapsibleSection>
 
