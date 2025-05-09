@@ -20,7 +20,7 @@ function CollapsibleSection({ title, children }) {
 
 export default function App() {
   const [data, setData] = useState({
-    months: 36,
+    months: 120,
     startDate: '2025-07',
     costPrice: 6.9,
     sellPrice: 12.9,
@@ -30,11 +30,11 @@ export default function App() {
     marginPerUnit: 6.0,
     deckungsbeitragPerUnit: 2.0,
     unitsPerDisplay: 32,
-    newPartners: 1,
+    newPartners: 4,
     increaseInterval: 12,
-    increaseAmount: 0,
-    reorderRate: 100,
-    reorderCycle: 12,
+    increaseAmount: 2,
+    reorderRate: 50,
+    reorderCycle: 1,
     license1Gross: 1.2,
     postcardCost: 0.1,
     graphicShare: 0.2,
@@ -42,7 +42,6 @@ export default function App() {
     license2Threshold: 3
   });
 
-  // Automatische Aktualisierung von marginPerUnit & deckungsbeitragPerUnit
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -64,7 +63,6 @@ export default function App() {
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
-  // Neukunden pro Monat
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -74,7 +72,6 @@ export default function App() {
         : 0)
   );
 
-  // Summary-Werte
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
@@ -82,13 +79,12 @@ export default function App() {
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
 
-  // Ø VE pro Händler/Jahr & Ø Umsatz pro Händler/Jahr
-  // Wir zählen nur Reorders, die innerhalb der ersten 12 Monate nach Eintrittsmonat liegen (t < 12),
-  // daher floor((12 - 1) / reorderCycle)
-  const reorderEventsPerYear =
-    reorderCycle > 0 ? Math.floor((12 - 1) / reorderCycle) : 0;
-  const avgUnits =
-    unitsPerDisplay * (1 + (reorderRate / 100) * reorderEventsPerYear);
+  // Hier die korrigierte Zeile:
+  const reorderEventsPerYear = reorderCycle > 0
+    ? Math.floor((12 - 1) / reorderCycle)
+    : 0;
+
+  const avgUnits = unitsPerDisplay * (1 + (reorderRate / 100) * reorderEventsPerYear);
   const avgRevenue = avgUnits * sellPrice;
 
   return (
