@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import InputMask from './components/InputMask';
 import LicenseChart from './components/LicenseChart';
 import SummarySection from './components/SummarySection';
@@ -42,6 +42,7 @@ export default function App() {
     license2Threshold: 3
   });
 
+  // Aktualisiere marginPerUnit und deckungsbeitragPerUnit
   useEffect(() => {
     const { sellPrice, costPrice, salesCost, logisticsCost } = data;
     const margin = parseFloat((sellPrice - costPrice).toFixed(2));
@@ -63,6 +64,7 @@ export default function App() {
 
   const [startYear, startMonth] = startDate.split('-').map(Number);
 
+  // Errechne Neukunden pro Monat
   const newPartnersPerMonth = Array.from(
     { length: months },
     (_, j) =>
@@ -80,10 +82,35 @@ export default function App() {
       .reduce((sum, c) => sum + c * (reorderRate / 100), 0)
   );
 
-  // Ø VE pro Händler/Jahr & Ø Umsatz pro Händler/Jahr
+  // Ø VE pro Händler/Jahr & Ø Umsatz pro Händler/Jahr (direkte Formel)
   const reorderEventsPerYear = reorderCycle > 0 ? Math.floor(12 / reorderCycle) : 0;
   const avgUnits = unitsPerDisplay * (1 + (reorderRate / 100) * reorderEventsPerYear);
   const avgRevenue = avgUnits * sellPrice;
+
+  // Export-Funktion: config + summary-Werte in JSON
+  const handleExport = useCallback(() => {
+    const exportData = {
+      config: data,
+      summary: {
+        totalNew,
+        reorders,
+        avgUnits,
+        avgRevenue,
+        deckungsbeitragPerUnit: data.deckungsbeitragPerUnit,
+        license1Gross: data.license1Gross,
+        license2: data.license2
+      }
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `export_${new Date().toISOString()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [data, totalNew, reorders, avgUnits, avgRevenue]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -105,6 +132,12 @@ export default function App() {
           license1Gross={data.license1Gross}
           license2={data.license2}
         />
+        <button
+          onClick={handleExport}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Konfiguration & Ergebnisse exportieren
+        </button>
       </CollapsibleSection>
 
       <CollapsibleSection title="Einnahmen & Marge">
