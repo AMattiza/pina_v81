@@ -216,7 +216,7 @@ export default function App() {
       </CollapsibleSection>
 
       {/* 4: Lizenz 1 / Städteserie & Lizenz 2 / Website & Shop */}
-      <CollapsibleSection title="Lizenz 1 / Städteserie (C-Hub) & Lizenz 2 / Website & Shop (C-Hub)">
+      <CollapsibleSection title="Lizenz 1 & Lizenz 2 (C-Hub)">
         <InputMask
           data={data}
           onChange={setData}
