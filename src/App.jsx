@@ -77,7 +77,7 @@ export default function App() {
         : 0)
   );
 
-  // 2) Gesamt‐Neukunden und Reorders im ersten Jahr (Offset 0…11)
+  // 2) Gesamt-Neukunden und Reorders im ersten Jahr (Offset 0…11)
   const totalNew = newPartnersPerMonth.reduce((a, b) => a + b, 0);
   const reorders = Math.round(
     newPartnersPerMonth
@@ -89,7 +89,6 @@ export default function App() {
   let totalUnitsSecondYearAllCustomers = 0;
   newPartnersPerMonth.forEach(cohortSize => {
     let veSecondYear = 0;
-    // Nur Nachbestellungen im zweiten Jahr, keine Erstbestellung
     for (let m = 12; m <= 23; m++) {
       if (reorderCycle > 0 && m % reorderCycle === 0) {
         veSecondYear += (reorderRate / 100) * unitsPerDisplay;
@@ -101,17 +100,44 @@ export default function App() {
     totalNew > 0 ? totalUnitsSecondYearAllCustomers / totalNew : 0;
   const avgRevenueSecondYear = avgUnitsSecondYear * sellPrice;
 
-  // Formatter
-  const fmt = v =>
-    new Intl.NumberFormat('de-DE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(v) + ' €';
-  const fmtNum = v =>
-    new Intl.NumberFormat('de-DE', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(v);
+  // CSV-Export-Funktion (kein externes Package nötig)
+  const handleExportCSV = () => {
+    const headers = [
+      'Monat',
+      'Neukunden',
+      'Reorders im 2. Jahr',
+      'Ø VE im 2. Jahr pro Händler'
+    ];
+    const rows = newPartnersPerMonth.map((cohortSize, idx) => {
+      let reordersYear2 = 0;
+      for (let m = 12; m <= 23; m++) {
+        if (reorderCycle > 0 && m % reorderCycle === 0) {
+          reordersYear2 += cohortSize * (reorderRate / 100);
+        }
+      }
+      return [
+        idx + 1,
+        cohortSize,
+        Math.round(reordersYear2),
+        avgUnitsSecondYear.toFixed(2)
+      ];
+    });
+
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(r => r.join(';'))
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `business_case_${new Date().toISOString()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -124,7 +150,6 @@ export default function App() {
       </CollapsibleSection>
 
       <CollapsibleSection title="Übersicht">
-        {/* SummarySection nimmt jetzt die Second-Year-Werte */}
         <SummarySection
           totalNew={totalNew}
           reorders={reorders}
@@ -134,6 +159,12 @@ export default function App() {
           license1Gross={license1Gross}
           license2={license2}
         />
+        <button
+          onClick={handleExportCSV}
+          className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Export als CSV
+        </button>
       </CollapsibleSection>
 
       <CollapsibleSection title="Einnahmen & Marge">
