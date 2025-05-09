@@ -36,27 +36,27 @@ export default function SummarySection({
       <SummaryWidget
         title="Gesamt Neukunden"
         value={fmtNum(totalNew)}
-        info="Summe aller Neukunden"
+        info="Summe aller Neukunden in Ihren Kohorten"
       />
       <SummaryWidget
-        title="Kunden mit ≥1 Nachbestellung"
+        title="Kunden mit ≥ 1 Nachbestellung"
         value={fmtNum(reorders)}
-        info="Kunden, die mindestens eine Nachbestellung getätigt haben"
+        info="Anzahl Neukunden, die innerhalb der ersten 12 Monate nach ihrem Einstieg mindestens einmal nachbestellt haben"
       />
       <SummaryWidget
         title="Ø VE pro Händler/Jahr"
         value={fmtNum(avgUnits)}
-        info="Ø VE pro Kunde in den ersten 12 Monaten (inkl. Erstbestellung)"
+        info="Durchschnittliche Verkaufseinheiten pro Händler in den ersten 12 Monaten ab Erstbestellung (Erstbestellung + Nachbestellungen im Monat 1…11)"
       />
       <SummaryWidget
         title="Ø Umsatz pro Händler/Jahr"
         value={fmt(avgRevenue)}
-        info="Ø Umsatz pro Kunde in den ersten 12 Monaten"
+        info="Durchschnittlicher Umsatz pro Händler in den ersten 12 Monaten ab Erstbestellung"
       />
       <SummaryWidget
         title="Gewinn vor Steuern je VE (€)"
         value={fmt(deckungsbeitragPerUnit - license1Gross - license2)}
-        info="Deckungsbeitrag II pro VE minus Lizenzkosten"
+        info="Deckungsbeitrag II pro VE abzüglich Lizenzkosten"
       />
     </div>
   );
