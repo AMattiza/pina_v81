@@ -1,26 +1,16 @@
 // src/components/SummarySection.jsx
 import React from 'react';
 
-// Ein einzelnes Feld
 function SummaryWidget({ title, value, info }) {
   return (
     <div className="p-4 bg-gray-100 rounded-xl text-center">
-      <h3 className="font-medium flex items-center justify-center">
-        {title}
-        <abbr
-          title={info}
-          className="ml-2 text-gray-400 cursor-help"
-          style={{ textDecoration: 'none' }}
-        >
-          ?
-        </abbr>
-      </h3>
+      <h3 className="font-medium">{title}</h3>
+      <p className="text-sm text-gray-500 mb-2">{info}</p>
       <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
 }
 
-// Die Übersicht als Grid
 export default function SummarySection({
   totalNew,
   reorders,
@@ -30,7 +20,6 @@ export default function SummarySection({
   license1Gross,
   license2,
 }) {
-  // Formatter für Euro- und Zahlen-Ausgabe
   const fmt = v =>
     new Intl.NumberFormat('de-DE', {
       minimumFractionDigits: 2,
@@ -52,23 +41,21 @@ export default function SummarySection({
       <SummaryWidget
         title="Kunden mit ≥1 Nachbestellung"
         value={fmtNum(reorders)}
-        info="Kunden mit Nachbestellung"
+        info="Kunden, die mindestens eine Nachbestellung getätigt haben"
       />
       <SummaryWidget
         title="Ø VE pro Händler/Jahr"
         value={fmtNum(avgUnits)}
-        info="Ø VE je Kunde in 12 Monaten"
+        info="Ø VE pro Kunde in den ersten 12 Monaten (inkl. Erstbestellung)"
       />
       <SummaryWidget
         title="Ø Umsatz pro Händler/Jahr"
         value={fmt(avgRevenue)}
-        info="Ø Umsatz je Kunde in 12 Monaten"
+        info="Ø Umsatz pro Kunde in den ersten 12 Monaten"
       />
       <SummaryWidget
         title="Gewinn vor Steuern je VE (€)"
-        value={fmt(
-          deckungsbeitragPerUnit - license1Gross - license2
-        )}
+        value={fmt(deckungsbeitragPerUnit - license1Gross - license2)}
         info="Deckungsbeitrag II pro VE minus Lizenzkosten"
       />
     </div>
