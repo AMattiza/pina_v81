@@ -1,37 +1,63 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
 
-// Custom Tooltip zeigt alle gewünschten Kennzahlen an
+// Custom Tooltip zeigt alle gewünschten Kennzahlen mit deutscher Formatierung an
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0].payload;
+  const fmtInt = value => new Intl.NumberFormat('de-DE').format(value);
+  const fmtDec = value => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+
   return (
     <div className="bg-white p-4 border rounded-lg shadow-md">
       <p className="font-semibold">{label}</p>
-      <p>Neue Kunden: {d.newCustomers}</p>
-      <p>Nachbesteller: {d.reorderCustomers}</p>
-      <p>Rohertrag Pina: {d.bruttoRohertrag.toFixed(2)} €</p>
-      <p>Vertriebskosten: {d.vertriebsKosten.toFixed(2)} €</p>
-      <p>Logistikkosten: {d.logistikKosten.toFixed(2)} €</p>
-      <p>Deckungsbeitrag II: {d.deckungsbeitragII.toFixed(2)} €</p>
-      <p>Lizenz 1 Erlös: {d.tier1.toFixed(2)} €</p>
-      <p>Lizenz 2 Erlös: {d.tier2.toFixed(2)} €</p>
-      <p>Restgewinn Pina: {d.restgewinn.toFixed(2)} €</p>
+      <p>Neue Kunden: {fmtInt(d.newCustomers)}</p>
+      <p>Nachbesteller: {fmtInt(d.reorderCustomers)}</p>
+      <p>Rohertrag Pina: {fmtDec(d.bruttoRohertrag)} €</p>
+      <p>Vertriebskosten: {fmtDec(d.vertriebsKosten)} €</p>
+      <p>Logistikkosten: {fmtDec(d.logistikKosten)} €</p>
+      <p>Deckungsbeitrag II: {fmtDec(d.deckungsbeitragII)} €</p>
+      <p>Lizenz 1 Erlös: {fmtDec(d.tier1)} €</p>
+      <p>Lizenz 2 Erlös: {fmtDec(d.tier2)} €</p>
+      <p>Restgewinn Pina: {fmtDec(d.restgewinn)} €</p>
     </div>
   );
 };
 
 const LicenseChart = ({
-  data, startYear, startMonth,
-  dataKey = 'tier1', dataKey2 = 'tier2', dataKey3 = 'deckungsbeitragII', dataKey4 = 'restgewinn',
-  strokeColor = '#34C759', strokeColor2 = '#007AFF', strokeColor3 = '#FFD60A', strokeColor4 = '#FF9500',
-  name = 'Lizenz 1 Erlös', name2 = 'Lizenz 2 Erlös', name3 = 'Deckungsbeitrag II', name4 = 'Restgewinn'
+  data,
+  startYear,
+  startMonth,
+  dataKey = 'tier1',
+  dataKey2 = 'tier2',
+  dataKey3 = 'deckungsbeitragII',
+  dataKey4 = 'restgewinn',
+  strokeColor = '#34C759',
+  strokeColor2 = '#007AFF',
+  strokeColor3 = '#FFD60A',
+  strokeColor4 = '#FF9500',
+  name = 'Lizenz 1 Erlös',
+  name2 = 'Lizenz 2 Erlös',
+  name3 = 'Deckungsbeitrag II',
+  name4 = 'Restgewinn'
 }) => {
   const {
-    months, newPartners, increaseInterval, increaseAmount,
-    unitsPerDisplay, license1Gross, postcardCost, graphicShare,
-    license2, license2Threshold, reorderRate, reorderCycle,
-    costPrice, sellPrice, salesCost, logisticsCost
+    months,
+    newPartners,
+    increaseInterval,
+    increaseAmount,
+    unitsPerDisplay,
+    license1Gross,
+    postcardCost,
+    graphicShare,
+    license2,
+    license2Threshold,
+    reorderRate,
+    reorderCycle,
+    costPrice,
+    sellPrice,
+    salesCost,
+    logisticsCost
   } = data;
 
   const net1 = Math.max(license1Gross - postcardCost - graphicShare, 0);
@@ -64,6 +90,7 @@ const LicenseChart = ({
     const restgewinn = deckungsbeitragII - tier1 - tier2;
 
     return {
+      month: i + 1,
       monthLabel,
       newCustomers: cSize,
       reorderCustomers: Math.round(cSize * (reorderRate / 100)),
@@ -80,7 +107,7 @@ const LicenseChart = ({
   return (
     <ResponsiveContainer width="100%" height={400}>
       <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-        <XAxis dataKey="monthLabel" label={{ value: 'Monat', position: 'insideBottom', offset: -5 }} />
+        <XAxis dataKey="month" />
         <YAxis />
         <Tooltip content={<CustomTooltip />} />
         <Legend verticalAlign="top" />
