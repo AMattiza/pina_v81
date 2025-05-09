@@ -108,7 +108,7 @@ const LicenseChart = ({
     <ResponsiveContainer width="100%" height={400}>
       <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
         <XAxis dataKey="month" />
-        <YAxis />
+        <YAxis label={null} />
         <Tooltip content={<CustomTooltip />} />
         <Legend verticalAlign="top" />
         <Line type="monotone" dataKey="tier1" stroke={strokeColor} name={name} dot={false} strokeWidth={3} />
