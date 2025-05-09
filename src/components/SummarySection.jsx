@@ -46,12 +46,12 @@ export default function SummarySection({
       <SummaryWidget
         title="Ø VE pro Händler/Jahr"
         value={fmtNum(avgUnits)}
-        info="Durchschnittliche Verkaufseinheiten pro Händler in den ersten 12 Monaten ab Erstbestellung (Erstbestellung + Nachbestellungen im Monat 1…11)"
+        info="Durchschnittliche Nachbestellungseinheiten pro Händler im zweiten Jahr nach Erstbestellung (Offset 12…23)"
       />
       <SummaryWidget
         title="Ø Umsatz pro Händler/Jahr"
         value={fmt(avgRevenue)}
-        info="Durchschnittlicher Umsatz pro Händler in den ersten 12 Monaten ab Erstbestellung"
+        info="Durchschnittlicher Umsatz pro Händler im zweiten Jahr nach Erstbestellung (Offset 12…23)"
       />
       <SummaryWidget
         title="Gewinn vor Steuern je VE (€)"
